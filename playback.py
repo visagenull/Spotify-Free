@@ -105,3 +105,28 @@ class Spotify:
         async with aiohttp.ClientSession() as session:
             async with session.put(f"https://api.spotify.com/v1/me/player/volume?volume_percent={volume_percent}", headers=self._headers) as response:
                 return {"status_code": response.status, "data": await response.json()}
+
+    @refresh_token_decorator
+    async def set_shuffle(self, shuffle):
+        async with aiohttp.ClientSession() as session:
+            async with session.put(f"https://api.spotify.com/v1/me/player/shuffle?state={shuffle}", headers=self._headers) as response:
+                return {"status_code": response.status, "data": await response.json()}
+
+    @refresh_token_decorator
+    async def set_smart_shuffle(self, smart_shuffle):
+        async with aiohttp.ClientSession() as session:
+            async with session.put(f"https://api.spotify.com/v1/me/player/smart_shuffle?state={smart_shuffle}", headers=self._headers) as response:
+                return {"status_code": response.status, "data": await response.json()}
+
+    @refresh_token_decorator
+    async def set_repeat(self, repeat):
+        async with aiohttp.ClientSession() as session:
+            async with session.put(f"https://api.spotify.com/v1/me/player/repeat?state={repeat}", headers=self._headers) as response:
+                return {"status_code": response.status, "data": await response.json()}
+
+    @refresh_token_decorator
+    async def select_device(self, device, control_device):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from/{control_device}/to/{device}", headers=self._headers) as response:
+                return {"status_code": response.status, "data": await response.json()}
+
