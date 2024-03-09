@@ -1,0 +1,12 @@
+{
+  "domain": "spotify_free",
+  "name": "Spotify Free",
+  "documentation": "https://github.com/yourusername/my_media_player",
+  "dependencies": [],
+  "codeowners": ["@yourusername"],
+  "requirements": [],
+  "config_flow": true,
+  "version": "1.0",
+  "issue_tracker": "https://github.com/yourusername/my_media_player/issues",
+  "iot_class": "cloud_polling"
+}
