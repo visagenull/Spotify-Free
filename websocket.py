@@ -15,6 +15,7 @@ class SpotifyWebsocket:
         self.connection_id = None
         self.device_id = None
         self.ws = None
+        self._devices = []
 
     async def create_device(self):
         self.device_id = ''.join(random.choices(string.ascii_letters, k=40))
@@ -30,9 +31,9 @@ class SpotifyWebsocket:
                     {"change_volume": True, "enable_play_token": True,
                     "supports_file_media_type": True,
                     "play_token_lost_behavior": "pause",
-                    "disable_connect": False},
+                    "disable_connect": True},
                     "device_id": self.device_id, "device_type": "computer",
-                    "metadata": {}, "model": "web_player", "name": "Spotify Player",
+                    "metadata": {}, "model": "web_player", "name": "Spotify Free Home Assistant",
                     "platform_identifier": "web_player windows 10;chrome 87.0.4280.66;desktop"},
                     "connection_id": self.connection_id, "client_version":
                     "harmony:4.11.0-af0ef98",
@@ -81,11 +82,8 @@ class SpotifyWebsocket:
         try:
             async with websockets.connect(uri) as ws:
                 self.ws = ws
-                print("Connected to Spotify WebSocket")
                 response = await self.ws.recv()
                 self.connection_id = json.loads(response)["headers"]["Spotify-Connection-Id"]
-                print(f"Connection ID: {self.connection_id}")
-
                 device_id = await self.create_device()
 
                 if device_id:
@@ -94,15 +92,25 @@ class SpotifyWebsocket:
 
                     while True:
                         response = await ws.recv()
-                        print(f"Received: {response[:100]}...")
-
                         response_data = json.loads(response)
                         if response_data.get("type") == "pong":
-
                             pass
                         else:
-                            _LOGGER.error("update callback")
+                            try:
+                                self._devices = {}
+                                data = response_data['payloads'][0]['cluster']['devices']
+                                for device_id, device_data in data.items():
+                                    name = device_data['name']
+                                    self._devices[name] = {'device_id': device_id, **device_data}
+                            except:
+                                pass
                             self.hass.bus.async_fire("spotify_websocket_update")
 
         except websockets.ConnectionClosed:
-            print("Connection closed. Retrying...")
+            _LOGGER.error("Connection closed.")
+
+    async def get_devices(self):
+        return self._devices
+
+    async def get_device_id(self):
+        return self.device_id
