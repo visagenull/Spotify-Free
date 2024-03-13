@@ -4,9 +4,6 @@ import websockets
 import json
 import random
 import string
-import logging
-
-_LOGGER = logging.getLogger(__name__)
 
 class SpotifyWebsocket:
     def __init__(self, hass, access_token):
@@ -107,7 +104,7 @@ class SpotifyWebsocket:
                             self.hass.bus.async_fire("spotify_websocket_update")
 
         except websockets.ConnectionClosed:
-            _LOGGER.error("Connection closed.")
+            self.hass.bus.async_fire("spotify_websocket_restart")
 
     async def get_devices(self):
         return self._devices
