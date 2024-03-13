@@ -74,7 +74,7 @@ class SpotifyFree(MediaPlayerEntity):
         self.spotify_websocket = websocket.SpotifyWebsocket(self.hass, self._access_token)
         self.hass.loop.create_task(self.spotify_websocket.spotify_websocket())
         self.hass.bus.async_listen("spotify_websocket_update", self.async_update)
-
+        self.hass.bus.async_listen("spotify_websocket_restart", self.async_added_to_hass)
 
     async def async_media_pause(self):
         """Pause playback."""
@@ -222,12 +222,12 @@ class SpotifyFree(MediaPlayerEntity):
         device_names = []
         for device_data in self._devices.values():
             device_names.append(device_data['name'])
-
         return device_names
+
 
     async def async_update(self, event=None):
         self._current_playback = await self.playback_instance.get_playback_status()
-        if self._current_playback:
+        if self._current_playback: 
             self._current_playback = self._current_playback["data"]
 
             self._track_name = self._current_playback["item"]["name"]
@@ -243,7 +243,7 @@ class SpotifyFree(MediaPlayerEntity):
             self._repeat_state = self._current_playback["repeat_state"]
             self._shuffle_state = self._current_playback["shuffle_state"]
             self._source = self._current_playback["device"]["name"]
+            self._support_volme = self._current_playback["device"]["supports_volume"]
             self._devices = await self.spotify_websocket.get_devices()
             self._control_device = await self.spotify_websocket.get_device_id()
-
             self.async_write_ha_state()
