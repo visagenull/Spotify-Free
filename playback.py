@@ -129,4 +129,3 @@ class Spotify:
         async with aiohttp.ClientSession() as session:
             async with session.post(f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from/{control_device}/to/{device}", headers=self._headers) as response:
                 return {"status_code": response.status, "data": await response.json()}
-
