@@ -8,5 +8,5 @@
   "config_flow": true,
   "version": "1.0",
   "issue_tracker": "https://github.com/lw-8991/Spotify-Free/issues",
-  "iot_class": "cloud_polling"
+  "iot_class": "cloud_push"
 }
