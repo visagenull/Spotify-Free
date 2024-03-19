@@ -49,7 +49,6 @@ class SpotifyFree(MediaPlayerEntity):
         self._last_update = None
         self._icon = "mdi:spotify"
         self.hass = hass
-
         self._track_name = None
         self._track_artist = None
         self._track_album_name = None
@@ -67,6 +66,7 @@ class SpotifyFree(MediaPlayerEntity):
         self._source = None
         self._spotify_websocket = None
         self._control_device = None
+        self._sources = {}
 
     async def async_added_to_hass(self):
         self.playback_instance = playback.Spotify(self._sp_dc)
@@ -123,7 +123,7 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_select_source(self, source):
         """Select playback source."""
-        await self.playback_instance.select_device(self._devices[source]["device_id"], self._control_device)
+        await self.playback_instance.select_device(self._sources[source]["device_id"], self._control_device)
 
     @property
     def name(self):
@@ -218,16 +218,37 @@ class SpotifyFree(MediaPlayerEntity):
 
     @property
     def source_list(self):
-        """Current device."""
-        device_names = []
-        for device_data in self._devices.values():
-            device_names.append(device_data['name'])
-        return device_names
+        """List of available sources."""
+
+        devices = {}
+        sources = []
+        if self._devices:
+            for device_id, device_data in self._devices.items():
+                display_name = None
+                        
+                if 'device_aliases' in device_data:
+                    for alias_data in device_data['device_aliases'].values():
+                        if 'display_name' in alias_data:
+                            display_name = alias_data['display_name']
+                            break
+
+                if not display_name:
+                    display_name = device_data['name']
+                    
+                # Check if device_id is present in device_data, otherwise set it to None
+                device_id = device_data.get('device_id')
+                            
+                devices[display_name] = {'device_id': device_id}
+                self._sources = devices
+
+            for device_name, device_info in devices.items():
+                sources.append(device_name)
+            return sources
 
 
     async def async_update(self, event=None):
         self._current_playback = await self.playback_instance.get_playback_status()
-        if self._current_playback: 
+        if self._current_playback:
             self._current_playback = self._current_playback["data"]
 
             self._track_name = self._current_playback["item"]["name"]
