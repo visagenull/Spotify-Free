@@ -4,9 +4,13 @@ import websockets
 import json
 import random
 import string
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 class SpotifyWebsocket:
     def __init__(self, hass, access_token):
+        """Initialise websocket."""
         self.hass = hass
         self.access_token = access_token
         self.connection_id = None
@@ -15,6 +19,8 @@ class SpotifyWebsocket:
         self._devices = []
 
     async def create_device(self):
+        """Create control device."""
+
         self.device_id = ''.join(random.choices(string.ascii_letters, k=40))
 
         url = "https://guc-spclient.spotify.com/track-playback/v1/devices"
@@ -47,6 +53,8 @@ class SpotifyWebsocket:
         return None
 
     async def update_device_state(self):
+        """Register devices for Spotify player updates."""
+
         url = f"https://guc-spclient.spotify.com/connect-state/v1/devices/hobs_{self.device_id}"
 
         headers = {
@@ -64,15 +72,17 @@ class SpotifyWebsocket:
                 async with session.put(url, json=payload, headers=headers) as response:
                     response.raise_for_status()
         except aiohttp.ClientError as err:
-            print(f"Error: {err}")
+            _LOGGER.error(f"Error: {err}")
 
     async def ping_loop(self):
+        """Keep websocket alive."""
         while True:
             ping_message = {"type": "ping"}
             await self.ws.send(json.dumps(ping_message))
             await asyncio.sleep(30)
 
     async def spotify_websocket(self):
+        """Create websocket."""
 
         uri = f"wss://gew1-dealer.spotify.com/?access_token={self.access_token}"
 
@@ -105,9 +115,3 @@ class SpotifyWebsocket:
 
         except websockets.ConnectionClosed:
             self.hass.bus.async_fire("spotify_websocket_restart")
-
-    async def get_devices(self):
-        return self._devices
-
-    async def get_device_id(self):
-        return self.device_id
