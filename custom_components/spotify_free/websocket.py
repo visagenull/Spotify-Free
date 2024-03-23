@@ -113,5 +113,11 @@ class SpotifyWebsocket:
                                 pass
                             self.hass.bus.async_fire("spotify_websocket_update")
 
-        except websockets.ConnectionClosed:
+        except websockets.ConnectionClosed as e:
+            _LOGGER.error(f"WebSocket connection closed: {e}")
             self.hass.bus.async_fire("spotify_websocket_restart")
+        except asyncio.IncompleteReadError as e:
+            _LOGGER.error(f"Incomplete read error: {e}")
+            self.hass.bus.async_fire("spotify_websocket_restart")
+        except Exception as e:
+            _LOGGER.error(f"An unexpected error occurred: {e}")
