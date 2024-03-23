@@ -63,6 +63,10 @@ class SpotifyFree(MediaPlayerEntity):
 
         await self.async_update()
 
+        # Uncomment to get device list at startup.
+        # await self.playback_instance.select_device(self._source_id, self._control_device)
+
+
     async def websocket(self):
         """Setup and restart websocket."""
         if self.spotify_websocket:
@@ -219,7 +223,7 @@ class SpotifyFree(MediaPlayerEntity):
         if self._devices:
             for device_id, device_data in self._devices.items():
                 display_name = None
-                        
+
                 if 'device_aliases' in device_data:
                     for alias_data in device_data['device_aliases'].values():
                         if 'display_name' in alias_data:
@@ -228,9 +232,9 @@ class SpotifyFree(MediaPlayerEntity):
 
                 if not display_name:
                     display_name = device_data['name']
-                    
+
                 device_id = device_data.get('device_id')
-                            
+
                 devices[display_name] = {'device_id': device_id}
                 self._sources = devices
 
@@ -258,6 +262,7 @@ class SpotifyFree(MediaPlayerEntity):
                 self._repeat_state = self._current_playback["repeat_state"]
                 self._shuffle_state = self._current_playback["shuffle_state"]
                 self._source = self._current_playback["device"]["name"]
+                self._source_id = self._current_playback["device"]["id"]
                 self._support_volme = self._current_playback["device"]["supports_volume"]
                 self._devices = self.spotify_websocket._devices
                 self._control_device = self.spotify_websocket.device_id
