@@ -48,7 +48,6 @@ class SpotifyFree(MediaPlayerEntity):
         self.hass = hass
         self._icon = "mdi:spotify"
         self.spotify_websocket = None
-        
 
     async def async_added_to_hass(self):
         """Setup playback control."""
