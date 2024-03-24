@@ -26,4 +26,9 @@ You will need  a spotify ```sp_dc``` key which can be found by inspecting a logg
 
 This is found in Application > Storage > Cookies > ```https://open.spotify.com``` > ```sp_dc```
 
-Follow [this](https://github.com/fondberg/spotcast/tree/master?tab=readme-ov-file#obtaining-sp_dc-and-sp_key-cookies) guide for a similar process.
+Follow [this](https://github.com/fondberg/spotcast/tree/master?tab=readme-ov-file#obtaining-sp_dc-and-sp_key-cookies) guide for a similar process.  
+
+You can disable polling via the UI like [this](https://github.com/home-assistant/home-assistant.io/issues/26198#issuecomment-1425561473) as it is not needed.  
+
+## Notes
+The device seletor will not be available until you have interacted with the Spotify media player.
