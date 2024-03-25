@@ -48,11 +48,11 @@ class SpotifyFree(MediaPlayerEntity):
         self.hass = hass
         self._icon = "mdi:spotify"
         self.spotify_websocket = None
+        self._devices = None
 
     async def async_added_to_hass(self):
         """Setup playback control."""
         self.playback_instance = playback.Spotify(self._sp_dc)
-        self._access_token= await self.playback_instance.get_access_token()
 
         """Start websocket."""
         await self.websocket()
@@ -72,7 +72,8 @@ class SpotifyFree(MediaPlayerEntity):
         if self.spotify_websocket:
             del self.spotify_websocket
 
-        self.spotify_websocket = websocket.SpotifyWebsocket(self.hass, self._access_token)
+        access_token= await self.playback_instance.get_access_token()
+        self.spotify_websocket = websocket.SpotifyWebsocket(self.hass, access_token)
         self.hass.loop.create_task(self.spotify_websocket.spotify_websocket())
 
     async def async_media_pause(self):
