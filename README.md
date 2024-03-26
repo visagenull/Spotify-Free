@@ -15,9 +15,12 @@ This Home Assistant integration is designed to provide full parity of the Spotif
 * Websocket based updates
 
 ## Installation
-<!---This component is easiest installed using [HACS](https://github.com/custom-components/hacs). -->
+This component is easiest installed using [HACS](https://github.com/custom-components/hacs).
 
-To install manually copy all the files from ```custom_components/spotify_free``` to ```custom_components/spotify_free``` in your Home Assistant folder.
+
+To install manually copy all the files from ```custom_components/spotify_free``` to ```custom_components/spotify_free``` in your Home Assistant folder.  
+
+[Add](https://hacs.xyz/docs/faq/custom_repositories/) ```https://github.com/lw-8991/Spotify-Free``` as a custom reposity with the integration category in HACS then configure via the UI.
 
 ## Configuration
 
