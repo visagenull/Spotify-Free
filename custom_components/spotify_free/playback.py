@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import logging
+import json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,13 +69,15 @@ class Spotify:
         """Get user's Spotify profile name from SP_DC."""
         return await self.make_api_call("GET", "https://api.spotify.com/v1/me")
 
-    async def pause(self):
+    async def pause(self, device, control_device):
         """Pause playback."""
-        return await self.make_api_call("PUT", "https://api.spotify.com/v1/me/player/pause")
+        data = {'command': {'endpoint': 'pause'}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from/{control_device}/to/{device}", data=json.dumps(data))
 
-    async def resume(self):
+    async def resume(self, device, control_device):
         """Resume playback."""
-        return await self.make_api_call("PUT", "https://api.spotify.com/v1/me/player/play")
+        data = {'command': {'endpoint': 'resume'}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from/{control_device}/to/{device}", data=json.dumps(data))
 
     async def get_playback_status(self):
         """Get info about current playing song and device."""
@@ -111,3 +114,12 @@ class Spotify:
     async def select_device(self, device, control_device):
         """Change playback device."""
         return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from/{control_device}/to/{device}")
+
+    async def lyrics(self, track_id):
+        """Get lyrics of a track."""
+        params = {
+            'format': 'json',
+            'vocalRemoval': 'false',
+            'market': 'from_token'
+        }
+        return await self.make_api_call("GET", f"https://spclient.wg.spotify.com/color-lyrics/v2/track/{track_id}", params=params)
