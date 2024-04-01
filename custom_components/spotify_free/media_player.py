@@ -16,6 +16,10 @@ from .const import DOMAIN
 from . import playback
 from . import websocket
 
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+
 SUPPORT_SPOTIFY_FREE = (
     MediaPlayerEntityFeature.NEXT_TRACK
     | MediaPlayerEntityFeature.PAUSE
@@ -78,11 +82,11 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_media_pause(self):
         """Pause playback."""
-        await self.playback_instance.pause()
+        await self.playback_instance.pause(self._source_id, self._control_device)
 
     async def async_media_play(self):
         """Resume playback."""
-        await self.playback_instance.resume()
+        await self.playback_instance.resume(self._source_id, self._control_device)
 
     async def async_media_next_track(self):
         """Skip to next track."""
@@ -159,9 +163,19 @@ class SpotifyFree(MediaPlayerEntity):
         return self._track_album_name
 
     @property
+    def media_playlist(self):
+        """Current playing playlist."""
+        return self._playlist
+
+    @property
     def media_image_url(self):
         """Album cover of current playing media."""
         return self._media_image_url
+
+    @property
+    def media_track(self):
+        """Track number of current playing media."""
+        return self._track_number
 
     @property
     def media_duration(self):
@@ -251,6 +265,7 @@ class SpotifyFree(MediaPlayerEntity):
             try:
                 self._current_playback = self._current_playback["data"]
                 self._track_name = self._current_playback["item"]["name"]
+                self._track_id = self._current_playback["item"]["id"]
                 self._track_artist = ", ".join(artist["name"] for artist in self._current_playback["item"]["artists"])
                 self._track_album_name = self._current_playback["item"]["album"]["name"]
                 self._media_image_url = self._current_playback["item"]["album"]["images"][0]["url"]
@@ -267,6 +282,9 @@ class SpotifyFree(MediaPlayerEntity):
                 self._support_volme = self._current_playback["device"]["supports_volume"]
                 self._devices = self.spotify_websocket._devices
                 self._control_device = self.spotify_websocket.device_id
+                self._track_number = self._current_playback["item"]["track_number"]
+                self._playlist = self._current_playback["context"]["external_urls"]["spotify"]
+                self._lyrics = await self.playback_instance.lyrics(self._track_id)
             except:
                 pass
             self.async_write_ha_state()
