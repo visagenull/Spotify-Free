@@ -61,7 +61,7 @@ class Spotify:
                         self._headers["Authorization"] = f"Bearer {self._access_token}"
                         return access_token
                     else:
-                        print(f"Error: {response}")
+                        _LOGGER.error(f"Error: {response}")
         except Exception as e:
             _LOGGER.error(f"Error: {str(e)}")
 

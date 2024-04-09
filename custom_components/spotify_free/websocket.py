@@ -48,7 +48,7 @@ class SpotifyWebsocket:
                     response.raise_for_status()
                     return self.device_id
         except aiohttp.ClientError as err:
-            print(f"Error: {err}")
+            _LOGGER.error(f"Error: {err}")
 
         return None
 
@@ -81,6 +81,11 @@ class SpotifyWebsocket:
             await self.ws.send(json.dumps(ping_message))
             await asyncio.sleep(30)
 
+    async def refresh(self):
+        """Refresh websocket."""
+        await asyncio.sleep(3600)
+        self.hass.bus.async_fire("spotify_websocket_restart")
+
     async def spotify_websocket(self):
         """Create websocket."""
 
@@ -96,6 +101,7 @@ class SpotifyWebsocket:
                 if device_id:
                     await self.update_device_state()
                     asyncio.create_task(self.ping_loop())
+                    asyncio.create_task(self.refresh())
 
                     while True:
                         response = await ws.recv()
