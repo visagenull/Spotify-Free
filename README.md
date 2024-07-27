@@ -66,6 +66,10 @@ To improve performance, you can disable polling:
 2. **Adjust Settings**:
    - Disable polling by unchecking the option or modifying the settings as outlined [here](https://github.com/home-assistant/home-assistant.io/issues/26198#issuecomment-1425561473).
 
+### Replace Spotify Integration
+
+To replace the name and icon of the Spotify Free integration with the official ones rename the folder `spotify_free` containing the integration files to `spotify`, change the domain in `const.py` and the `manifest.json` to `spotify`. This requires that you do not have the official spotify integration installed.
+
 ## Notes
 
 - **Device Selector**: The device selector in the UI will only become available after you have interacted with the Spotify media player at least once. This ensures that the integration can properly detect and list your available devices.
