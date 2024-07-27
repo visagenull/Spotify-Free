@@ -1,12 +1,12 @@
 {
   "domain": "spotify_free",
   "name": "Spotify Free",
-  "documentation": "https://github.com/lw-8991/Spotify-Free",
+  "documentation": "https://github.com/visagenull/Spotify-Free",
   "dependencies": [],
-  "codeowners": ["@lw-8991"],
+  "codeowners": ["@visagenull"],
   "requirements": [],
   "config_flow": true,
   "version": "1.0",
-  "issue_tracker": "https://github.com/lw-8991/Spotify-Free/issues",
+  "issue_tracker": "https://github.com/visagenull/Spotify-Free/issues",
   "iot_class": "cloud_push"
 }

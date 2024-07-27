@@ -1,37 +1,75 @@
 # Spotify Free
 
-This Home Assistant integration is designed to provide full parity of the Spotify media player integration without requiring a premium account while also providing better functionality.  
-
-**This uses an unnoficial Spotify API and was mostly written by ChatGPT so could break at any time.**
+This Home Assistant integration provides an alternative way to control Spotify without requiring a premium account, offering extensive functionality through an unofficial Spotify API. It was developed with the help of ChatGPT and could be subject to changes or potential breakage as it relies on unofficial methods.
 
 ## Features
 
-* Play/Pause/Seek/Skip
-* Shuffle/Repeat
-* Volume control
-* Device select
-* Multiple accounts
-* UI configuration
-* Websocket based updates
+- **Playback Controls**: Play, Pause, Seek, and Skip tracks.
+- **Playback Settings**: Adjust Shuffle and Repeat modes.
+- **Volume Control**: Set and adjust the volume.
+- **Device Management**: Select and switch playback devices.
+- **Multi-Account Support**: Manage multiple Spotify accounts.
+- **User Interface**: Configurable through Home Assistant's UI.
+- **Real-Time Updates**: Uses WebSocket for live updates on playback status.
 
 ## Installation
-This component is easiest installed using [HACS](https://github.com/custom-components/hacs).
 
+### Using HACS
 
-To install manually copy all the files from ```custom_components/spotify_free``` to ```custom_components/spotify_free``` in your Home Assistant folder.  
+1. **Install HACS**: If you haven't already, follow the [HACS installation guide](https://hacs.xyz/docs/installation/manual).
+2. **Add Custom Repository**:
+   - Go to HACS in Home Assistant.
+   - Navigate to `Settings` > `Custom repositories`.
+   - Add `https://github.com/visagenull/Spotify-Free` as a custom repository.
+   - Set the category to `Integration`.
+3. **Install Integration**:
+   - Go to the `Integrations` tab in HACS.
+   - Search for "Spotify Free" and install it.
 
-[Add](https://hacs.xyz/docs/faq/custom_repositories/) ```https://github.com/visagenull/Spotify-Free``` as a custom reposity with the integration category in HACS then configure via the UI.
+### Manual Installation
+
+1. **Download Files**:
+   - Copy all files from `custom_components/spotify_free` to `custom_components/spotify_free` in your Home Assistant configuration directory.
+2. **Restart Home Assistant**: Ensure the new component is recognized by restarting Home Assistant.
 
 ## Configuration
 
-The integration is configured with the UI.  
-You will need  a spotify ```sp_dc``` key which can be found by inspecting a logged in Spotify page on your browser.  
+### Obtaining `sp_dc` Cookie
 
-This is found in Application > Storage > Cookies > ```https://open.spotify.com``` > ```sp_dc```
+To configure the integration, you need to obtain a `sp_dc` cookie from your Spotify account:
 
-Follow [this](https://github.com/fondberg/spotcast/tree/master?tab=readme-ov-file#obtaining-sp_dc-and-sp_key-cookies) guide for a similar process.  
+1. **Open Spotify**: Log in to your Spotify account via a web browser.
+2. **Inspect Page**:
+   - Open Developer Tools (usually accessible via F12 or right-click and select "Inspect").
+   - Navigate to the `Application` tab.
+   - In the left sidebar, select `Cookies` under `Storage`.
+   - Find and copy the value of the `sp_dc` cookie from the `https://open.spotify.com` domain.
 
-You can disable polling via the UI like [this](https://github.com/home-assistant/home-assistant.io/issues/26198#issuecomment-1425561473) as it is not needed.  
+For more detailed steps on obtaining `sp_dc`, refer to [this guide](https://github.com/fondberg/spotcast/tree/master?tab=readme-ov-file#obtaining-sp_dc-and-sp_key-cookies).
+
+### Configuration via UI
+
+1. **Access Configuration**:
+   - In Home Assistant, navigate to `Configuration` > `Integrations`.
+   - Click on `+ Add Integration` and search for "Spotify Free".
+2. **Add Credentials**:
+   - Enter the `sp_dc` cookie value when prompted.
+   - Follow additional prompts to complete the setup.
+
+### Disabling Polling
+
+To improve performance, you can disable polling:
+
+1. **Navigate to the Home Assistant UI**:
+   - Go to `Configuration` > `Settings` > `Entities`.
+   - Locate the Spotify entity.
+2. **Adjust Settings**:
+   - Disable polling by unchecking the option or modifying the settings as outlined [here](https://github.com/home-assistant/home-assistant.io/issues/26198#issuecomment-1425561473).
 
 ## Notes
-The device seletor will not be available until you have interacted with the Spotify media player.
+
+- **Device Selector**: The device selector in the UI will only become available after you have interacted with the Spotify media player at least once. This ensures that the integration can properly detect and list your available devices.
+
+- **Potential Issues**: As this integration relies on unofficial APIs, it may encounter issues if Spotify updates its API or changes its cookie mechanisms. Regular updates and maintenance may be required to ensure continued functionality.
+
+- **Community Support**: For questions or issues, refer to the [GitHub repository](https://github.com/visagenull/Spotify-Free) or engage with the Home Assistant community for support.

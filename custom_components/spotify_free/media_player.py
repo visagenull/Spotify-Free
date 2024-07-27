@@ -1,22 +1,25 @@
+import asyncio
+import logging
+
+import voluptuous as vol
 from homeassistant.components.media_player import (
     MediaPlayerEntity,
     PLATFORM_SCHEMA,
     MediaPlayerEntityFeature,
     RepeatMode,
 )
-
-from homeassistant.const import CONF_HOST, CONF_PORT
-import voluptuous as vol
-from homeassistant.const import STATE_PLAYING, STATE_PAUSED, STATE_OFF, STATE_UNKNOWN
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_PORT,
+    STATE_OFF,
+    STATE_PAUSED,
+    STATE_PLAYING,
+)
 import homeassistant.util.dt as dt_util
 
-import json
-
-from .const import DOMAIN
 from . import playback
 from . import websocket
-
-import logging
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,47 +41,55 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required("sp_dc"): str,
 })
 
+
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Create media player."""
+    """Set up the Spotify Free media player platform."""
     name = entry.title
     data = entry.data
 
-    async_add_entities([SpotifyFree(name, data, hass)])
+    entity = SpotifyFree(name, data, hass)
+    async_add_entities([entity])
+
 
 class SpotifyFree(MediaPlayerEntity):
     def __init__(self, name, data, hass):
         self._name = name
         self._sp_dc = data.get("sp_dc")
         self.hass = hass
+
         self._icon = "mdi:spotify"
         self.spotify_websocket = None
         self._devices = None
 
-    async def async_added_to_hass(self):
-        """Setup playback control."""
-        self.playback_instance = playback.Spotify(self._sp_dc)
+        asyncio.create_task(self.reconnect())
 
-        """Start websocket."""
+    async def async_added_to_hass(self):
+        """Set up playback control and start websocket."""
+        self.playback_instance = playback.Spotify(self._sp_dc)
         await self.websocket()
 
-        """Listen for player updates."""
         self.hass.bus.async_listen("spotify_websocket_update", self.async_update)
         self.hass.bus.async_listen("spotify_websocket_restart", self.websocket)
 
         await self.async_update()
 
-        # Uncomment to get device list at startup.
-        # await self.playback_instance.select_device(self._source_id, self._control_device)
+        if DOMAIN not in self.hass.data:
+            self.hass.data[DOMAIN] = {'entities': []}
+        self.hass.data[DOMAIN]['entities'].append(self)
 
+    async def reconnect(self):
+        while True:
+            await asyncio.sleep(3600)
+            await self.websocket()
 
     async def websocket(self):
-        """Setup and restart websocket."""
+        """Set up and restart websocket."""
         if self.spotify_websocket:
-            del self.spotify_websocket
+            self.spotify_websocket_task.cancel()
 
-        access_token= await self.playback_instance.get_access_token()
+        access_token = await self.playback_instance.get_access_token()
         self.spotify_websocket = websocket.SpotifyWebsocket(self.hass, access_token)
-        self.hass.loop.create_task(self.spotify_websocket.spotify_websocket())
+        self.spotify_websocket_task = self.hass.loop.create_task(self.spotify_websocket.spotify_websocket())
 
     async def async_media_pause(self):
         """Pause playback."""
@@ -93,7 +104,7 @@ class SpotifyFree(MediaPlayerEntity):
         await self.playback_instance.next()
 
     async def async_media_previous_track(self):
-        """Skip to previos track."""
+        """Skip to previous track."""
         await self.playback_instance.previous()
 
     async def async_set_volume_level(self, volume):
@@ -105,16 +116,16 @@ class SpotifyFree(MediaPlayerEntity):
         await self.playback_instance.seek(int(position * 1000))
 
     async def async_set_repeat(self, repeat):
-        """Set repeat mode. off/all/one"""
-        if repeat == "one":
-            await self.playback_instance.set_repeat("track")
-        if repeat == "all":
-            await self.playback_instance.set_repeat("context")
-        else:
-           await self.playback_instance.set_repeat("off")
+        """Set repeat mode."""
+        repeat_map = {
+            "one": "track",
+            "all": "context",
+            "off": "off",
+        }
+        await self.playback_instance.set_repeat(repeat_map.get(repeat, "off"))
 
     async def async_set_shuffle(self, shuffle):
-        """Set shuffle mode boolean."""
+        """Set shuffle mode."""
         await self.playback_instance.set_shuffle(shuffle)
 
     async def async_mute_volume(self, mute):
@@ -127,7 +138,7 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_select_source(self, source):
         """Select playback source."""
-        await self.playback_instance.select_device(self._sources[source]["device_id"], self._control_device)
+        await self.playback_instance.select_device(self._devices[source], self._control_device)
 
     @property
     def name(self):
@@ -142,10 +153,9 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def state(self):
         """Return the state of the player."""
-        if self._state == True:
-            return STATE_PLAYING
-        elif self._state == False:
-            return STATE_PAUSED
+        if self._state is None:
+            return STATE_OFF
+        return STATE_PLAYING if self._state else STATE_PAUSED
 
     @property
     def media_title(self):
@@ -165,7 +175,7 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def media_playlist(self):
         """Current playing playlist."""
-        return self._playlist
+        return getattr(self, '_playlist', None)
 
     @property
     def media_image_url(self):
@@ -175,7 +185,7 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def media_track(self):
         """Track number of current playing media."""
-        return self._track_number
+        return self._track_number if hasattr(self, '_playlist') else None
 
     @property
     def media_duration(self):
@@ -185,14 +195,14 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def media_position(self):
         """Position of current playing media in seconds."""
-        if self._state == True or self._state == False:
+        if self._state in [True, False]:
             self._last_update = dt_util.utcnow()
             return self._current_position
         return None
 
     @property
     def media_position_updated_at(self):
-        """When was the position of the current playing media valid. Returns value from homeassistant.util.dt.utcnow()."""
+        """When the position of the current playing media was valid."""
         return self._last_update
 
     @property
@@ -208,12 +218,12 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def repeat(self):
         """Current repeat state."""
-        if self._repeat_state == "context":
-            return "all"
-        if self._repeat_state == "track":
-            return "one"
-        else:
-            return "off"
+        repeat_map = {
+            "context": "all",
+            "track": "one",
+            "off": "off"
+        }
+        return repeat_map.get(self._repeat_state, "off")
 
     @property
     def shuffle(self):
@@ -233,58 +243,34 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def source_list(self):
         """List of available devices."""
-        devices = {}
-        sources = []
-        if self._devices:
-            for device_id, device_data in self._devices.items():
-                display_name = None
-
-                if 'device_aliases' in device_data:
-                    for alias_data in device_data['device_aliases'].values():
-                        if 'display_name' in alias_data:
-                            display_name = alias_data['display_name']
-                            break
-
-                if not display_name:
-                    display_name = device_data['name']
-
-                device_id = device_data.get('device_id')
-
-                devices[display_name] = {'device_id': device_id}
-                self._sources = devices
-
-            for device_name, device_info in devices.items():
-                sources.append(device_name)
-            return sources
-
+        device_names = [key for key in self._devices if 'hobs' not in key]
+        return device_names
 
     async def async_update(self, event=None):
-        """Update media player playback."""
+        """Retrieve latest state."""
         self._current_playback = await self.playback_instance.get_playback_status()
         if self._current_playback:
             try:
                 self._current_playback = self._current_playback["data"]
-                self._track_name = self._current_playback["item"]["name"]
-                self._track_id = self._current_playback["item"]["id"]
-                self._track_artist = ", ".join(artist["name"] for artist in self._current_playback["item"]["artists"])
-                self._track_album_name = self._current_playback["item"]["album"]["name"]
-                self._media_image_url = self._current_playback["item"]["album"]["images"][0]["url"]
-                self._current_position = int(self._current_playback["progress_ms"]) / 1000
-                self._media_duration = int(self._current_playback["item"]["duration_ms"]) / 1000
-                self._volume = self._current_playback["device"]["volume_percent"]
+                self._track_name = self._current_playback["item"].get("name")
+                self._track_id = self._current_playback["item"].get("id")
+                self._track_artist = ", ".join(artist["name"] for artist in self._current_playback["item"].get("artists", []))
+                self._track_album_name = self._current_playback["item"]["album"].get("name")
+                self._media_image_url = self._current_playback["item"]["album"]["images"][0].get("url")
+                self._current_position = int(self._current_playback.get("progress_ms", 0)) / 1000
+                self._media_duration = int(self._current_playback["item"].get("duration_ms", 0)) / 1000
+                self._volume = self._current_playback["device"].get("volume_percent")
                 self._is_muted = self._volume == 0
-                self._state = self._current_playback["is_playing"]
-                self._volume_level = int(self._current_playback['device']['volume_percent']) / 100
-                self._repeat_state = self._current_playback["repeat_state"]
-                self._shuffle_state = self._current_playback["shuffle_state"]
-                self._source = self._current_playback["device"]["name"]
-                self._source_id = self._current_playback["device"]["id"]
-                self._support_volme = self._current_playback["device"]["supports_volume"]
+                self._state = self._current_playback.get("is_playing")
+                self._volume_level = int(self._current_playback['device'].get('volume_percent', 0)) / 100
+                self._repeat_state = self._current_playback.get("repeat_state")
+                self._shuffle_state = self._current_playback.get("shuffle_state")
+                self._source = self._current_playback["device"].get("name")
+                self._source_id = self._current_playback["device"].get("id")
                 self._devices = self.spotify_websocket._devices
                 self._control_device = self.spotify_websocket.device_id
-                self._track_number = self._current_playback["item"]["track_number"]
-                self._playlist = self._current_playback["context"]["external_urls"]["spotify"]
-                self._lyrics = await self.playback_instance.lyrics(self._track_id)
-            except:
-                pass
-            self.async_write_ha_state()
+                self._track_number = self._current_playback["item"].get("track_number")
+                self._playlist = self._current_playback["context"].get("external_urls", {}).get("spotify")
+            except Exception as e:
+                _LOGGER.error("Update Error: %s", e)
+        self.async_write_ha_state()
