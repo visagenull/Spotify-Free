@@ -93,11 +93,11 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_media_pause(self):
         """Pause playback."""
-        await self.playback_instance.pause(self._source_id, self._control_device)
+        await self.playback_instance.pause(self._source_id)
 
     async def async_media_play(self):
         """Resume playback."""
-        await self.playback_instance.resume(self._source_id, self._control_device)
+        await self.playback_instance.resume(self._source_id)
 
     async def async_media_next_track(self):
         """Skip to next track."""
