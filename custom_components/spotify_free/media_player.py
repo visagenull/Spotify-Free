@@ -93,11 +93,11 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_media_pause(self):
         """Pause playback."""
-        await self.playback_instance.pause(self._source_id)
+        await self.playback_instance.pause(self._current_device_id)
 
     async def async_media_play(self):
         """Resume playback."""
-        await self.playback_instance.resume(self._source_id)
+        await self.playback_instance.resume(self._current_device_id)
 
     async def async_media_next_track(self):
         """Skip to next track."""
@@ -238,7 +238,7 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def source(self):
         """Current device."""
-        return self._source
+        return self._current_device
 
     @property
     def source_list(self):
@@ -265,8 +265,8 @@ class SpotifyFree(MediaPlayerEntity):
                 self._volume_level = int(self._current_playback['device'].get('volume_percent', 0)) / 100
                 self._repeat_state = self._current_playback.get("repeat_state")
                 self._shuffle_state = self._current_playback.get("shuffle_state")
-                self._source = self._current_playback["device"].get("name")
-                self._source_id = self._current_playback["device"].get("id")
+                self._current_device = self._current_playback["device"].get("name")
+                self._current_device_id = self._current_playback["device"].get("id")
                 self._devices = self.spotify_websocket._devices
                 self._control_device = self.spotify_websocket.device_id
                 self._track_number = self._current_playback["item"].get("track_number")
