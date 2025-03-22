@@ -1,10 +1,10 @@
 {
-  "domain": "spotify_free",
-  "name": "Spotify Free",
+  "domain": "spotify",
+  "name": "Spotify",
   "documentation": "https://github.com/visagenull/Spotify-Free",
   "dependencies": [],
   "codeowners": ["@visagenull"],
-  "requirements": [],
+  "requirements": ["pytotp"],
   "config_flow": true,
   "version": "1.0",
   "issue_tracker": "https://github.com/visagenull/Spotify-Free/issues",
