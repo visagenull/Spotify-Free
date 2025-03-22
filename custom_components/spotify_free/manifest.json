@@ -1,6 +1,6 @@
 {
   "domain": "spotify_free",
-  "name": "Spotify",
+  "name": "Spotify Free",
   "documentation": "https://github.com/visagenull/Spotify-Free",
   "dependencies": [],
   "codeowners": ["@visagenull"],
