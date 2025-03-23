@@ -57,6 +57,27 @@ class SpotifyFree(MediaPlayerEntity):
         self._sp_dc = data.get("sp_dc")
         self.hass = hass
 
+        self._current_playback = None
+        self._track_name = None
+        self._track_id = None
+        self._track_artist = None
+        self._track_album_name = None
+        self._media_image_url = None
+        self._current_position = None
+        self._media_duration = None
+        self._volume = 0
+        self._is_muted = self._volume == 0
+        self._state = None
+        self._volume_level = None
+        self._repeat_state = None
+        self._shuffle_state = None
+        self._current_device = None
+        self._current_device_id = None
+        self._devices = None
+        self._control_device = None
+        self._track_number = None
+        self._playlist = None
+
         self._icon = "mdi:spotify"
         self.spotify_websocket = None
         self._devices = None
@@ -243,8 +264,11 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def source_list(self):
         """List of available devices."""
-        device_names = [key for key in self._devices if 'hobs' not in key]
-        return device_names
+        try:
+            device_names = [key for key in self._devices if 'hobs' not in key]
+            return device_names
+        except:
+            return None
 
     async def async_update(self, event=None):
         """Retrieve latest state."""
