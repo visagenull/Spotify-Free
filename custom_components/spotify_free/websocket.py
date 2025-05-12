@@ -18,7 +18,7 @@ class SpotifyWebsocket:
         self.device_id = None
         self.ws = None
         self._devices = {}
-        self._response = None
+        self.response = None
 
     async def create_device(self):
         """Create control device."""
