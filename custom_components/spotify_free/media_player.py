@@ -53,9 +53,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class SpotifyFree(MediaPlayerEntity):
     def __init__(self, name, data, hass):
-        self._name = name
+        self._icon = "mdi:spotify"
         self._sp_dc = data.get("sp_dc")
+        self._name = name
         self.hass = hass
+        
 
         self._current_playback = None
         self._track_name = None
@@ -66,9 +68,8 @@ class SpotifyFree(MediaPlayerEntity):
         self._current_position = None
         self._media_duration = None
         self._volume = 0
-        self._is_muted = self._volume == 0
+        self._is_muted = False
         self._state = None
-        self._volume_level = None
         self._repeat_state = None
         self._shuffle_state = None
         self._current_device = None
@@ -77,8 +78,7 @@ class SpotifyFree(MediaPlayerEntity):
         self._control_device = None
         self._track_number = None
         self._playlist = None
-
-        self._icon = "mdi:spotify"
+        self._data = None        
         self.spotify_websocket = None
         self._devices = None
 
@@ -103,6 +103,7 @@ class SpotifyFree(MediaPlayerEntity):
             await asyncio.sleep(3600)
             await self.websocket()
 
+
     async def websocket(self):
         """Set up and restart websocket."""
         if self.spotify_websocket:
@@ -112,6 +113,8 @@ class SpotifyFree(MediaPlayerEntity):
         self.spotify_websocket = websocket.SpotifyWebsocket(self.hass, access_token)
         self.spotify_websocket_task = self.hass.loop.create_task(self.spotify_websocket.spotify_websocket())
 
+    """Media player controls"""
+
     async def async_media_pause(self):
         """Pause playback."""
         await self.playback_instance.pause(self._current_device_id)
@@ -120,46 +123,49 @@ class SpotifyFree(MediaPlayerEntity):
         """Resume playback."""
         await self.playback_instance.resume(self._current_device_id)
 
-    async def async_media_next_track(self):
-        """Skip to next track."""
-        await self.playback_instance.next()
-
     async def async_media_previous_track(self):
         """Skip to previous track."""
-        await self.playback_instance.previous()
+        await self.playback_instance.previous(self._current_device_id)
 
-    async def async_set_volume_level(self, volume):
-        """Set the volume."""
-        await self.playback_instance.volume_percent(int(volume * 100))
+    async def async_media_next_track(self):
+        """Skip to next track."""
+        await self.playback_instance.next(self._current_device_id)
 
     async def async_media_seek(self, position):
         """Seek to position in seconds."""
-        await self.playback_instance.seek(int(position * 1000))
+        await self.playback_instance.seek(self._current_device_id, seek_ms=int(position * 1000))
 
     async def async_set_repeat(self, repeat):
         """Set repeat mode."""
         repeat_map = {
-            "one": "track",
-            "all": "context",
-            "off": "off",
+            "off": (False, False),
+            "all": (True, False),
+            "one": (False, True),
         }
-        await self.playback_instance.set_repeat(repeat_map.get(repeat, "off"))
+        context, track = repeat_map.get(repeat, (False, False))
+        await self.playback_instance.set_repeat(self._current_device_id, context, track)
 
     async def async_set_shuffle(self, shuffle):
         """Set shuffle mode."""
-        await self.playback_instance.set_shuffle(shuffle)
+        await self.playback_instance.set_shuffle(self._current_device_id, shuffle)
+
+    async def async_set_volume_level(self, volume):
+        """Set the volume."""
+        await self.playback_instance.volume(self._current_device_id, volume)
 
     async def async_mute_volume(self, mute):
         """Mute playback."""
         if self._is_muted:
-            await self.playback_instance.volume_percent(self._old_volume)
+            await self.playback_instance.volume(self._current_device_id, self._old_volume)
         else:
             self._old_volume = self._volume
-            await self.playback_instance.volume_percent(0)
+            await self.playback_instance.volume(self._current_device_id, volume=0)
 
     async def async_select_source(self, source):
         """Select playback source."""
         await self.playback_instance.select_device(self._devices[source], self._control_device)
+
+    """Media player properties"""
 
     @property
     def name(self):
@@ -229,7 +235,7 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def volume_level(self):
         """Volume level of the media player (0..1)."""
-        return self._volume_level
+        return self._volume
 
     @property
     def is_volume_muted(self):
@@ -272,29 +278,31 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_update(self, event=None):
         """Retrieve latest state."""
-        self._current_playback = await self.playback_instance.get_playback_status()
-        if self._current_playback:
-            try:
-                self._current_playback = self._current_playback["data"]
-                self._track_name = self._current_playback["item"].get("name")
-                self._track_id = self._current_playback["item"].get("id")
-                self._track_artist = ", ".join(artist["name"] for artist in self._current_playback["item"].get("artists", []))
-                self._track_album_name = self._current_playback["item"]["album"].get("name")
-                self._media_image_url = self._current_playback["item"]["album"]["images"][0].get("url")
-                self._current_position = int(self._current_playback.get("progress_ms", 0)) / 1000
-                self._media_duration = int(self._current_playback["item"].get("duration_ms", 0)) / 1000
-                self._volume = self._current_playback["device"].get("volume_percent")
+        self._state = self.spotify_websocket.response
+        if self._state:
+            try:                
+                cluster = self._state["payloads"][0]["cluster"]
+                player_state = cluster["player_state"]
+                track = player_state["track"]
+                metadata = track["metadata"]
+                self._track_name = metadata["title"]
+                self._track_id = track["uri"].split(":")[-1]
+                self._track_artist = "Unknown"
+                self._track_album_name = metadata["album_title"]
+                self._media_image_url = "https://i.scdn.co/image/" + metadata["image_large_url"].split(":")[-1]
+                self._current_position = int(player_state.get("position_as_of_timestamp")) / 1000
+                self._media_duration = int(player_state.get("duration")) / 1000
+                self._state = player_state["is_playing"] and not player_state["is_paused"]
+                self._shuffle_state = player_state["options"]["shuffling_context"]
+                self._repeat_state = "context" if player_state["options"]["repeating_context"] else "off"
+                self._track_number = player_state["index"]["track"]
+                self._current_device_id = cluster["active_device_id"]
+                current = cluster["devices"][self._current_device_id]
+                self._volume = int(current.get("volume" , 0)) / 65535
                 self._is_muted = self._volume == 0
-                self._state = self._current_playback.get("is_playing")
-                self._volume_level = int(self._current_playback['device'].get('volume_percent', 0)) / 100
-                self._repeat_state = self._current_playback.get("repeat_state")
-                self._shuffle_state = self._current_playback.get("shuffle_state")
-                self._current_device = self._current_playback["device"].get("name")
-                self._current_device_id = self._current_playback["device"].get("id")
                 self._devices = self.spotify_websocket._devices
-                self._control_device = self.spotify_websocket.device_id
-                self._track_number = self._current_playback["item"].get("track_number")
-                self._playlist = self._current_playback["context"].get("external_urls", {}).get("spotify")
+                self._current_device = next((name for name, id_ in self._devices.items() if id_ == self._current_device_id), None)
+                self._playlist = "https://open.spotify.com/playlist/" + player_state["context_uri"].split(":")[-1]
             except Exception as e:
                 _LOGGER.error("Update Error: %s", e)
         self.async_write_ha_state()
