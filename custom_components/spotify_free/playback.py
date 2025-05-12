@@ -81,7 +81,6 @@ class Spotify:
         try:
             if not self._access_token:
                 await self.get_access_token()
-
             async with aiohttp.ClientSession() as session:
                 async with session.request(method, url, headers=self._headers, **kwargs) as response:
                     if response.status == 401:
@@ -93,7 +92,6 @@ class Spotify:
                                 data = await retry_response.text()
 
                             return {"status_code": retry_response.status, "data": data}
-
                     if response.content_type == "application/json":
                         data = await response.json()
                     else:
@@ -157,11 +155,6 @@ class Spotify:
             async with session.get("https://api.spotify.com/v1/me", headers=headers) as response:
                 return response.status == 200
 
-
-    async def get_user_profile(self):
-        """Get user's Spotify profile name from SP_DC."""
-        return await self.make_api_call("GET", "https://api.spotify.com/v1/me")
-
     async def get_user_profile(self):
         """Get user's Spotify profile name from SP_DC."""
         return await self.make_api_call("GET", "https://api.spotify.com/v1/me")
@@ -176,42 +169,37 @@ class Spotify:
         data = {'command': {'endpoint': 'resume'}}
         return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from//to/{device}", data=json.dumps(data))
 
-    async def get_playback_status(self):
-        """Get info about current playing song and device."""
-        return await self.make_api_call("GET", "https://api.spotify.com/v1/me/player")
-
-    async def next(self):
-        """Skip to next track."""
-        return await self.make_api_call("POST", "https://api.spotify.com/v1/me/player/next")
-
-    async def previous(self):
+    async def previous(self, device):
         """Skip to previous track."""
-        return await self.make_api_call("POST", "https://api.spotify.com/v1/me/player/previous")
+        data = {'command': {'endpoint': 'skip_prev'}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from//to/{device}", data=json.dumps(data))
+    
+    async def next(self, device):
+        """Skip to next track."""
+        data = {'command': {'endpoint': 'skip_next'}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from//to/{device}", data=json.dumps(data))
 
-    async def seek(self, seek_ms):
+    async def seek(self, device, seek_ms):
         """Seek to position in milliseconds."""
-        return await self.make_api_call("PUT", f"https://api.spotify.com/v1/me/player/seek?position_ms={seek_ms}")
+        data = {'command': {'endpoint': 'seek_to' , 'value': seek_ms}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from//to/{device}", data=json.dumps(data))
 
-    async def volume_percent(self, volume_percent):
-        """Set volume percentage."""
-        return await self.make_api_call("PUT", f"https://api.spotify.com/v1/me/player/volume?volume_percent={volume_percent}")
-
-    async def set_shuffle(self, shuffle):
+    async def set_shuffle(self, device, shuffle):
         """Set shuffle mode."""
-        return await self.make_api_call("PUT", f"https://api.spotify.com/v1/me/player/shuffle?state={shuffle}")
+        data = {'command': {'endpoint': 'set_shuffling_context' , 'value': shuffle}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from//to/{device}", data=json.dumps(data))
 
-    async def set_smart_shuffle(self, smart_shuffle):
-        """Set smart shuffle mode, currently unused."""
-        return await self.make_api_call("PUT", f"https://api.spotify.com/v1/me/player/smart_shuffle?state={smart_shuffle}")
-
-    async def set_repeat(self, repeat):
+    async def set_repeat(self, device, context=False, track=False):
         """Set repeat mode."""
-        return await self.make_api_call("PUT", f"https://api.spotify.com/v1/me/player/repeat?state={repeat}")
+        data = {'command': {'endpoint': 'set_options' , 'repeating_context': context , 'repeating_track': track}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/player/command/from//to/{device}", data=json.dumps(data))
+
+    async def volume(self, device, volume):
+        """Set volume percentage."""
+        data = {'volume': volume * 65535}
+        return await self.make_api_call("PUT", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/volume/from//to/{device}", data=json.dumps(data))
 
     async def select_device(self, device, control_device):
         """Change playback device."""
-        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from/{control_device}/to/{device}")
-    
-    async def get_lyrics(self, track_id):
-        """Get song lyrics."""
-        return await self.make_api_call("GET", f"https://spclient.wg.spotify.com/color-lyrics/v2/track/{track_id}")
+        data = {'transfer_options': {'restore_paused': 'restore'}}
+        return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from//to/{device}", data=json.dumps(data))
