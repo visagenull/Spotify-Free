@@ -5,6 +5,7 @@ import json
 import random
 import string
 import logging
+from websockets.exceptions import InvalidStatusCode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class SpotifyWebsocket:
         self.device_id = None
         self.ws = None
         self._devices = {}
+        self._response = None
 
     async def create_device(self):
         """Create control device."""
@@ -96,6 +98,7 @@ class SpotifyWebsocket:
             except Exception as err:
                 _LOGGER.error(f"Error sending ping: {err}")
             await asyncio.sleep(30)
+    
 
     async def spotify_websocket(self):
         """Create and manage the Spotify websocket connection."""
@@ -119,8 +122,15 @@ class SpotifyWebsocket:
                             continue
                         await self.process(response_data)
 
+        except InvalidStatusCode as e:
+            if e.status_code == 401:
+                _LOGGER.error("WebSocket connection failed: Unauthorized (401) – Retrying.")
+                self.hass.bus.async_fire("spotify_websocket_restart")
+            else:
+                _LOGGER.error(f"WebSocket failed with status code {e.status_code}")
         except Exception as e:
             _LOGGER.error(f"An unexpected error occurred: {e}")
+
 
     async def process(self, response):
         """Process the websocket response."""
@@ -134,6 +144,8 @@ class SpotifyWebsocket:
                     device_dict[display_name] = device_id
                 _LOGGER.info(device_dict)
                 self._devices = device_dict
+            self.response = response
             self.hass.bus.async_fire("spotify_websocket_update")
+            
         except Exception as e:
             _LOGGER.error(f"Error processing response: {e}")
