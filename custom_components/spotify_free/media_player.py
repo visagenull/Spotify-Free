@@ -105,7 +105,7 @@ class SpotifyFree(MediaPlayerEntity):
             await asyncio.sleep(3600)
             await self.websocket()
 
-    async def update(self, blah):
+    async def update(self, blah): # this blah is necessary for some reason that god only knows otherwise it gets sent 2 things no idea why
         """Detect updates from websocket."""
         self._last_update = dt_util.utcnow()
         await self.async_update()
