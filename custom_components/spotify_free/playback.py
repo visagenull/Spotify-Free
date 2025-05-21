@@ -4,6 +4,7 @@ import logging
 import json
 import time
 import pyotp
+import re
 from random import randrange
 
 _LOGGER = logging.getLogger(__name__)
@@ -148,12 +149,20 @@ class Spotify:
 
 
     async def check_token_validity(self, token):
+        """Check validity of access token"""
         headers = {
             "Authorization": f"Bearer {token}"
         }
         async with aiohttp.ClientSession() as session:
             async with session.get("https://api.spotify.com/v1/me", headers=headers) as response:
                 return response.status == 200
+
+    async def get_artist(self, artist_id):
+        """Get artist name from HTML"""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://open.spotify.com/artist/{artist_id}") as response:
+                html = await response.text()
+                return html.split("<title>")[1].split("|")[0].strip()
 
     async def get_user_profile(self):
         """Get user's Spotify profile name from SP_DC."""
