@@ -1,11 +1,12 @@
 import aiohttp
 import asyncio
-import websockets
 import json
 import random
 import string
 import logging
-from websockets.exceptions import InvalidStatusCode
+from aiohttp import WSMsgType, ClientResponseError
+import ssl
+ssl_context = ssl.create_default_context()
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,44 +91,60 @@ class SpotifyWebsocket:
             _LOGGER.error(f"Error updating device state: {err}")
 
     async def ping_loop(self):
-        """Keep websocket alive."""
+        """Keep the WebSocket connection alive by sending pings every 30 seconds."""
         while True:
             try:
                 ping_message = {"type": "ping"}
-                await self.ws.send(json.dumps(ping_message))
+                if self.ws is not None and not self.ws.closed:
+                    await self.ws.send_json(ping_message)
+                else:
+                    _LOGGER.warning("WebSocket is closed. Stopping ping loop.")
+                    break
             except Exception as err:
                 _LOGGER.error(f"Error sending ping: {err}")
+                break  # Exit the loop on error to allow reconnection logic
             await asyncio.sleep(30)
-    
 
+    
     async def spotify_websocket(self):
         """Create and manage the Spotify websocket connection."""
         uri = f"wss://gew1-dealer.spotify.com/?access_token={self.access_token}"
 
+
         try:
-            async with websockets.connect(uri) as ws:
-                self.ws = ws
-                response = await self.ws.recv()
-                self.connection_id = json.loads(response)["headers"]["Spotify-Connection-Id"]
-                device_id = await self.create_device()
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(uri, ssl=ssl_context) as ws:
+                    self.ws = ws
+                    msg = await ws.receive()
+                    if msg.type == WSMsgType.TEXT:
+                        self.connection_id = json.loads(msg.data)["headers"]["Spotify-Connection-Id"]
+                        device_id = await self.create_device()
 
-                if device_id:
-                    await self.update_device_state()
-                    asyncio.create_task(self.ping_loop())
+                        if device_id:
+                            await self.update_device_state()
+                            asyncio.create_task(self.ping_loop())
 
-                    while True:
-                        response = await ws.recv()
-                        response_data = json.loads(response)
-                        if response_data.get("type") == "pong":
-                            continue
-                        await self.process(response_data)
+                            async for msg in ws:
+                                if msg.type == WSMsgType.TEXT:
+                                    response_data = json.loads(msg.data)
+                                    if response_data.get("type") == "pong":
+                                        continue
+                                    await self.process(response_data)
+                                elif msg.type == WSMsgType.CLOSED:
+                                    _LOGGER.warning("WebSocket closed")
+                                    break
+                                elif msg.type == WSMsgType.ERROR:
+                                    _LOGGER.error("WebSocket error")
+                                    break
 
-        except InvalidStatusCode as e:
-            if e.status_code == 401:
+        except ClientResponseError as e:
+            if e.status == 401:
                 _LOGGER.error("WebSocket connection failed: Unauthorized (401) – Retrying.")
                 self.hass.bus.async_fire("spotify_websocket_restart")
             else:
-                _LOGGER.error(f"WebSocket failed with status code {e.status_code}")
+                _LOGGER.error(f"WebSocket failed with status code {e.status}")
+        except aiohttp.ClientConnectionError as e:
+            _LOGGER.error(f"WebSocket connection error: {e}")
         except Exception as e:
             _LOGGER.error(f"An unexpected error occurred: {e}")
 
