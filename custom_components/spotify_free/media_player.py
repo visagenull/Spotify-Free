@@ -81,6 +81,7 @@ class SpotifyFree(MediaPlayerEntity):
         self._data = None        
         self.spotify_websocket = None
         self._devices = None
+        self._last_update = "1970-01-01T00:00:00+00:00"
 
         asyncio.create_task(self.reconnect())
 
@@ -89,7 +90,7 @@ class SpotifyFree(MediaPlayerEntity):
         self.playback_instance = playback.Spotify(self._sp_dc)
         await self.websocket()
 
-        self.hass.bus.async_listen("spotify_websocket_update", self.async_update)
+        self.hass.bus.async_listen("spotify_websocket_update", self.update)
         self.hass.bus.async_listen("spotify_websocket_restart", self.websocket)
 
         await self.async_update()
@@ -99,10 +100,15 @@ class SpotifyFree(MediaPlayerEntity):
         self.hass.data[DOMAIN]['entities'].append(self)
 
     async def reconnect(self):
+        """Reconnect websocket every hour."""
         while True:
             await asyncio.sleep(3600)
             await self.websocket()
 
+    async def update(self, blah):
+        """Detect updates from websocket."""
+        self._last_update = dt_util.utcnow()
+        await self.async_update()
 
     async def websocket(self):
         """Set up and restart websocket."""
@@ -223,9 +229,9 @@ class SpotifyFree(MediaPlayerEntity):
     def media_position(self):
         """Position of current playing media in seconds."""
         if self._state in [True, False]:
-            self._last_update = dt_util.utcnow()
             return self._current_position
         return None
+
 
     @property
     def media_position_updated_at(self):
@@ -287,7 +293,6 @@ class SpotifyFree(MediaPlayerEntity):
                 metadata = track["metadata"]
                 self._track_name = metadata["title"]
                 self._track_id = track["uri"].split(":")[-1]
-                self._track_artist = "Unknown"
                 self._track_album_name = metadata["album_title"]
                 self._media_image_url = "https://i.scdn.co/image/" + metadata["image_large_url"].split(":")[-1]
                 self._current_position = int(player_state.get("position_as_of_timestamp")) / 1000
@@ -303,6 +308,9 @@ class SpotifyFree(MediaPlayerEntity):
                 self._devices = self.spotify_websocket._devices
                 self._current_device = next((name for name, id_ in self._devices.items() if id_ == self._current_device_id), None)
                 self._playlist = "https://open.spotify.com/playlist/" + player_state["context_uri"].split(":")[-1]
+                self._track_artist = await self.playback_instance.get_artist(metadata["artist_uri"].split(":")[-1])
+
+
             except Exception as e:
                 _LOGGER.error("Update Error: %s", e)
         self.async_write_ha_state()
