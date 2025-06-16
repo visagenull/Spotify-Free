@@ -4,6 +4,7 @@ import logging
 import json
 import time
 import pyotp
+import base64
 import re
 from random import randrange
 
@@ -24,43 +25,19 @@ class Spotify:
         }
 
     async def get_random_user_agent(self):
+        """Generate random user agent for requests."""
         return f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_{randrange(11, 15)}_{randrange(4, 9)}) AppleWebKit/{randrange(530, 537)}.{randrange(30, 37)} (KHTML, like Gecko) Chrome/{randrange(80, 105)}.0.{randrange(3000, 4500)}.{randrange(60, 125)} Safari/{randrange(530, 537)}.{randrange(30, 36)}"
 
-
-    async def base32_from_bytes(self, e, secret_sauce):
-        t = 0
-        n = 0
-        r = ""
-        for byte in e:
-            n = (n << 8) | byte
-            t += 8
-            while t >= 5:
-                index = (n >> (t - 5)) & 31
-                r += secret_sauce[index]
-                t -= 5
-        if t > 0:
-            r += secret_sauce[(n << (5 - t)) & 31]
-        return r
-
-
-    async def clean_buffer(self, e):
-        e = e.replace(" ", "")
-        return bytes(int(e[i:i+2], 16) for i in range(0, len(e), 2))
-
     async def generate_totp(self):
-        _LOGGER.debug("Generating TOTP")
-        secret_cipher_bytes = [
-            12, 56, 76, 33, 88, 44, 88, 33,
-            78, 78, 11, 66, 22, 22, 55, 69, 54,
-        ]
-        transformed = [e ^ ((t % 33) + 9) for t, e in enumerate(secret_cipher_bytes)]
-        joined = "".join(str(num) for num in transformed)
-        utf8_bytes = joined.encode("utf-8")
-        hex_str = "".join(format(b, 'x') for b in utf8_bytes)
-        secret_bytes = await self.clean_buffer(hex_str)
-        secret_sauce = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-        secret = await self.base32_from_bytes(secret_bytes, secret_sauce)
-        _LOGGER.debug("Computed secret: %s", secret)
+        """Generate TOTP code using transformed cipher and get Spotify server time."""
+        secret_cipher = [12, 56, 76, 33, 88, 44, 88, 33, 78, 78, 11, 66, 22, 22, 55, 69, 54]
+        processed = [byte ^ ((i % 33) + 9) for i, byte in enumerate(secret_cipher)]
+        processed_str = "".join(map(str, processed))
+        utf8_bytes = processed_str.encode('utf-8')
+        hex_str = utf8_bytes.hex()
+        secret_bytes = bytes.fromhex(hex_str)
+        b32_secret = base64.b32encode(secret_bytes).decode('utf-8')
+        totp = pyotp.TOTP(b32_secret)
 
         headers = {
             "Host": "open.spotify.com",
@@ -68,14 +45,53 @@ class Spotify:
             "Accept": "*/*",
         }
         async with aiohttp.ClientSession() as session:
-            async with session.get("https://open.spotify.com/server-time", headers=headers) as response:
-                data = await response.json()
+            async with session.get("https://open.spotify.com/api/server-time", headers=headers) as resp:
+                data = await resp.json()
                 server_time = data.get("serverTime")
                 if server_time is None:
-                    raise Exception("Failed to get server time")
-        return pyotp.TOTP(secret, digits=6, interval=30), server_time, secret
+                    raise Exception("Failed to fetch server time from Spotify")
+        return totp, server_time
 
+    async def get_access_token(self):
+        """Fetch a new access token using sp_dc and TOTP."""
+        totp, server_time = await self.generate_totp()
+        otp_code = totp.at(int(server_time))
 
+        timestamp_ms = int(time.time() * 1000)
+
+        params = {
+            'reason': 'init',
+            'productType': 'web-player',
+            'totp': otp_code,
+            'totpServerTime': server_time,
+            'totpVer': '5',
+            'sTime': server_time,
+            'cTime': timestamp_ms,
+            'buildVer': 'web-player_2025-06-11_1749636522102_27bd7d1',
+            'buildDate': '2025-06-11'
+        }
+
+        headers = {
+            "User-Agent": await self.get_random_user_agent(),
+            "Accept": "*/*",
+            "Cookie": f"sp_dc={self._sp_dc}"
+        }
+
+        url = "https://open.spotify.com/api/token"
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url, headers=headers, params=params) as resp:
+                    data = await resp.json()
+                    token = data.get("accessToken")
+                    if token and await self.check_token_validity(token):
+                        self._access_token = token
+                        self._headers["Authorization"] = f"Bearer {token}"
+                        return token
+                    _LOGGER.error(f"Token fetch failed or invalid: {data}")
+            except Exception as e:
+                _LOGGER.error(f"Exception while fetching token: {e}")
+        return None
 
     async def make_api_call(self, method, url, **kwargs):
         """Make API calls with automatic token refresh on invalid tokens."""
@@ -105,47 +121,6 @@ class Spotify:
         except Exception as e:
             _LOGGER.error(f"An unexpected error occurred: {e}")
             return None
-
-
-
-    async def get_access_token(self):
-
-        totp_obj, server_time, _ = await self.generate_totp()
-        timestamp = int(time.time())
-        otp_value = totp_obj.at(server_time)
-        
-        params = {
-            "reason": "transport",
-            "productType": "web_player",
-            "totp": otp_value,
-            "totpVer": 5,
-            "ts": timestamp,
-        }
-
-        headers = {
-            "User-Agent": await self.get_random_user_agent(),
-            "Accept": "*/*",
-            "Cookie": f"sp_dc={self._sp_dc}",
-        }
-
-        url = "https://open.spotify.com/get_access_token"
-        
-        retries = 5
-        async with aiohttp.ClientSession() as session:
-            for attempt in range(retries):
-                try:
-                    async with session.get(url, headers=headers, params=params) as response:
-                        data = await response.json()
-                        access_token = data['accessToken']
-                        if await self.check_token_validity(access_token):
-                            self._access_token = access_token
-                            self._headers["Authorization"] = f"Bearer {self._access_token}"
-                            return access_token
-                
-                except Exception as e:
-                    _LOGGER.error(f"Get token Error: {str(e)}")
-                    return
-            return
 
 
     async def check_token_validity(self, token):
