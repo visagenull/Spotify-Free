@@ -1,23 +1,17 @@
 import aiohttp
-import asyncio
 import logging
 import json
 import time
 import pyotp
 import base64
-import re
 from random import randrange
 
 _LOGGER = logging.getLogger(__name__)
-
-
-SPOTIFY_API_URL = "https://api.spotify.com/v1/me"
 
 class Spotify:
     def __init__(self, sp_dc):
         self._sp_dc = sp_dc
         self._access_token = None
-        self._client_id = None
         self._headers = {
             "Authorization": f"Bearer {self._access_token}",
             "App-Platform": "WebPlayer",
@@ -132,16 +126,13 @@ class Spotify:
             async with session.get("https://api.spotify.com/v1/me", headers=headers) as response:
                 return response.status == 200
 
-    async def get_artist(self, artist_id):
-        """Get artist name from HTML"""
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://open.spotify.com/artist/{artist_id}") as response:
-                html = await response.text()
-                return html.split("<title>")[1].split("|")[0].strip()
-
     async def get_user_profile(self):
         """Get user's Spotify profile name from SP_DC."""
         return await self.make_api_call("GET", "https://api.spotify.com/v1/me")
+    
+    async def get_track_info(self, track_id):
+        """Get information about a track"""
+        return await self.make_api_call("GET", f"https://api.spotify.com/v1/tracks?ids={track_id}&market=from_token")
 
     async def pause(self, device):
         """Pause playback."""
@@ -183,7 +174,7 @@ class Spotify:
         data = {'volume': volume * 65535}
         return await self.make_api_call("PUT", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/volume/from//to/{device}", data=json.dumps(data))
 
-    async def select_device(self, device, control_device):
+    async def select_device(self, device):
         """Change playback device."""
         data = {'transfer_options': {'restore_paused': 'restore'}}
         return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from//to/{device}", data=json.dumps(data))
