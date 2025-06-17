@@ -9,8 +9,6 @@ from homeassistant.components.media_player import (
     RepeatMode,
 )
 from homeassistant.const import (
-    CONF_HOST,
-    CONF_PORT,
     STATE_OFF,
     STATE_PAUSED,
     STATE_PLAYING,
@@ -58,7 +56,7 @@ class SpotifyFree(MediaPlayerEntity):
         self._name = name
         self.hass = hass
         
-
+        self._track_info = None
         self._current_playback = None
         self._track_name = None
         self._track_id = None
@@ -77,8 +75,7 @@ class SpotifyFree(MediaPlayerEntity):
         self._devices = None
         self._control_device = None
         self._track_number = None
-        self._playlist = None
-        self._data = None        
+        self._playlist = None       
         self.spotify_websocket = None
         self._devices = None
         self._last_update = "1970-01-01T00:00:00+00:00"
@@ -105,7 +102,7 @@ class SpotifyFree(MediaPlayerEntity):
             await asyncio.sleep(3600)
             await self.websocket()
 
-    async def update(self, blah): # this blah is necessary for some reason that god only knows otherwise it gets sent 2 things no idea why
+    async def update(self, blah):
         """Detect updates from websocket."""
         self._last_update = dt_util.utcnow()
         await self.async_update()
@@ -146,7 +143,7 @@ class SpotifyFree(MediaPlayerEntity):
         repeat_map = {
             "off": (False, False),
             "all": (True, False),
-            "one": (False, True),
+            "one": (True, True),
         }
         context, track = repeat_map.get(repeat, (False, False))
         await self.playback_instance.set_repeat(self._current_device_id, context, track)
@@ -169,7 +166,7 @@ class SpotifyFree(MediaPlayerEntity):
 
     async def async_select_source(self, source):
         """Select playback source."""
-        await self.playback_instance.select_device(self._devices[source], self._control_device)
+        await self.playback_instance.select_device(self._devices[source])
 
     """Media player properties"""
 
@@ -251,12 +248,17 @@ class SpotifyFree(MediaPlayerEntity):
     @property
     def repeat(self):
         """Current repeat state."""
+
+
+
         repeat_map = {
-            "context": "all",
-            "track": "one",
-            "off": "off"
+            (False, False): "off",
+            (True, False): "all",
+            (True, True): "one",
         }
-        return repeat_map.get(self._repeat_state, "off")
+
+        return repeat_map.get((self._repeating_context, self._repeating_track), "off")
+
 
     @property
     def shuffle(self):
@@ -289,17 +291,29 @@ class SpotifyFree(MediaPlayerEntity):
             try:                
                 cluster = self._state["payloads"][0]["cluster"]
                 player_state = cluster["player_state"]
+                
                 track = player_state["track"]
-                metadata = track["metadata"]
-                self._track_name = metadata["title"]
                 self._track_id = track["uri"].split(":")[-1]
-                self._track_album_name = metadata["album_title"]
-                self._media_image_url = "https://i.scdn.co/image/" + metadata["image_large_url"].split(":")[-1]
+                response = await self.playback_instance.get_track_info(self._track_id)
+                self._track_info = response["data"]["tracks"][0]
+                
+                
+                self._track_name = self._track_info["name"]
+                self._track_album_name = self._track_info["album"]["name"]
+                self._media_image_url = self._track_info["album"]["images"][0]["url"]
+                self._track_artist = self._track_info["artists"][0]["name"]
+                
+
                 self._current_position = int(player_state.get("position_as_of_timestamp")) / 1000
                 self._media_duration = int(player_state.get("duration")) / 1000
                 self._state = player_state["is_playing"] and not player_state["is_paused"]
                 self._shuffle_state = player_state["options"]["shuffling_context"]
-                self._repeat_state = "context" if player_state["options"]["repeating_context"] else "off"
+
+
+                self._repeating_context = player_state["options"]["repeating_context"]
+                self._repeating_track = player_state["options"]["repeating_track"]
+
+                
                 self._track_number = player_state["index"]["track"]
                 self._current_device_id = cluster["active_device_id"]
                 current = cluster["devices"][self._current_device_id]
@@ -308,7 +322,7 @@ class SpotifyFree(MediaPlayerEntity):
                 self._devices = self.spotify_websocket._devices
                 self._current_device = next((name for name, id_ in self._devices.items() if id_ == self._current_device_id), None)
                 self._playlist = "https://open.spotify.com/playlist/" + player_state["context_uri"].split(":")[-1]
-                self._track_artist = await self.playback_instance.get_artist(metadata["artist_uri"].split(":")[-1])
+                    
 
 
             except Exception as e:
