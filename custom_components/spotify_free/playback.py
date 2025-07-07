@@ -40,7 +40,7 @@ class Spotify:
 
     @retry_async()
     async def generate_totp(self):
-        secret_cipher = [37, 84, 32, 76, 87, 90, 87, 47, 13, 75, 48, 54, 44, 28, 19, 21, 22]
+        secret_cipher = [61, 110, 58, 98, 35, 79, 117, 69, 102, 72, 92, 102, 69, 93, 41, 101, 42, 75]
         processed = [byte ^ ((i % 33) + 9) for i, byte in enumerate(secret_cipher)]
         processed_str = "".join(map(str, processed))
         utf8_bytes = processed_str.encode('utf-8')
