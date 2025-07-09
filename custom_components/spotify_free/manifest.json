@@ -6,7 +6,7 @@
   "codeowners": ["@visagenull"],
   "requirements": ["pytotp"],
   "config_flow": true,
-  "version": "1.5",
+  "version": "1.6",
   "issue_tracker": "https://github.com/visagenull/Spotify-Free/issues",
   "iot_class": "cloud_push"
 }
