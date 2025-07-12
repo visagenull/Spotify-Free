@@ -40,7 +40,21 @@ class Spotify:
 
     @retry_async()
     async def generate_totp(self):
-        secret_cipher = [61, 110, 58, 98, 35, 79, 117, 69, 102, 72, 92, 102, 69, 93, 41, 101, 42, 75]
+        url = "https://raw.githubusercontent.com/Thereallo1026/spotify-secrets/refs/heads/main/secrets/secretBytes.json"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    raise Exception(f"Failed to fetch TOTP secrets from GitHub. Status: {resp.status}")
+                text = await resp.text()
+                secrets_list = json.loads(text)
+
+
+        # Pick the entry with the highest version
+        latest_entry = max(secrets_list, key=lambda x: x["version"])
+        version = latest_entry["version"]
+        secret_cipher = latest_entry["secret"]
+
         processed = [byte ^ ((i % 33) + 9) for i, byte in enumerate(secret_cipher)]
         processed_str = "".join(map(str, processed))
         utf8_bytes = processed_str.encode('utf-8')
@@ -61,11 +75,12 @@ class Spotify:
                 server_time = data.get("serverTime")
                 if server_time is None:
                     raise Exception("Failed to fetch server time from Spotify")
-        return totp, server_time
+
+        return totp, server_time, version
 
     @retry_async()
     async def get_access_token(self):
-        totp, server_time = await self.generate_totp()
+        totp, server_time, totp_version = await self.generate_totp()
         otp_code = totp.at(int(server_time))
         timestamp_ms = int(time.time() * 1000)
 
@@ -74,7 +89,7 @@ class Spotify:
             'productType': 'web-player',
             'totp': otp_code,
             'totpServerTime': server_time,
-            'totpVer': '8',
+            'totpVer': str(totp_version),  # ✅ Use dynamic version
             'sTime': server_time,
             'cTime': timestamp_ms,
             'buildVer': 'web-player_2025-06-11_1749636522102_27bd7d1',
@@ -99,6 +114,7 @@ class Spotify:
                     return token
                 _LOGGER.error(f"Token fetch failed or invalid: {data}")
         return None
+
 
     @retry_async()
     async def make_api_call(self, method, url, **kwargs):
