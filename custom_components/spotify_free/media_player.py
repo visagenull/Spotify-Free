@@ -279,35 +279,46 @@ class SpotifyFree(MediaPlayerEntity):
         self._state = self.spotify_websocket.response
         if self._state:
             try:                
-                cluster = self._state["payloads"][0]["cluster"]
-                player_state = cluster["player_state"]
+                cluster = self._state.get("payloads", [{}])[0].get("cluster", {})
+                player_state = cluster.get("player_state", {})
 
-                track = player_state["track"]
-                self._track_id = track["uri"].split(":")[-1]
+                track = player_state.get("track", {})
+                self._track_id = track.get("uri", "").split(":")[-1]
+
                 response = await self.playback_instance.get_track_info(self._track_id)
-                self._track_info = response["data"]["tracks"][0]
+                self._track_info = response.get("data", {}).get("tracks", [{}])[0]
 
-                self._track_name = self._track_info["name"]
-                self._track_album_name = self._track_info["album"]["name"]
-                self._media_image_url = self._track_info["album"]["images"][0]["url"]
-                self._track_artist = self._track_info["artists"][0]["name"]
+                self._track_name = self._track_info.get("name", "")
+                self._track_album_name = self._track_info.get("album", {}).get("name", "")
+                self._media_image_url = self._track_info.get("album", {}).get("images", [{}])[0].get("url", "")
+                self._track_artist = self._track_info.get("artists", [{}])[0].get("name", "")
 
-                self._current_position = int(player_state.get("position_as_of_timestamp")) / 1000
-                self._media_duration = int(player_state.get("duration")) / 1000
-                self._state = player_state["is_playing"] and not player_state["is_paused"]
-                self._shuffle_state = player_state["options"]["shuffling_context"]
+                self._current_position = int(player_state.get("position_as_of_timestamp", 0)) / 1000
+                self._media_duration = int(player_state.get("duration", 0)) / 1000
+                self._state = player_state.get("is_playing", False) and not player_state.get("is_paused", True)
 
-                self._repeating_context = player_state["options"]["repeating_context"]
-                self._repeating_track = player_state["options"]["repeating_track"]
+                options = player_state.get("options", {})
+                self._shuffle_state = options.get("shuffling_context", False)
+                self._repeating_context = options.get("repeating_context", False)
+                self._repeating_track = options.get("repeating_track", False)
 
-                self._track_number = player_state["index"]["track"]
-                self._current_device_id = cluster["active_device_id"]
-                current = cluster["devices"][self._current_device_id]
+                index = player_state.get("index", {})
+                self._track_number = index.get("track", 0)
+
+                self._current_device_id = cluster.get("active_device_id", "")
+                devices = cluster.get("devices", {})
+                current = devices.get(self._current_device_id, {})
                 self._volume = int(current.get("volume", 0)) / 65535
                 self._is_muted = self._volume == 0
+
                 self._devices = self.spotify_websocket._devices
-                self._current_device = next((name for name, id_ in self._devices.items() if id_ == self._current_device_id), None)
-                self._playlist = "https://open.spotify.com/playlist/" + player_state["context_uri"].split(":")[-1]
+                self._current_device = next(
+                    (name for name, id_ in self._devices.items() if id_ == self._current_device_id),
+                    None
+                )
+
+                self._playlist = "https://open.spotify.com/playlist/" + player_state.get("context_uri", "").split(":")[-1]
+
 
             except Exception as e:
                 _LOGGER.error("Update Error: %s", e)
