@@ -40,7 +40,7 @@ class Spotify:
 
     @retry_async()
     async def generate_totp(self):
-        url = "https://raw.githubusercontent.com/Thereallo1026/spotify-secrets/refs/heads/main/secrets/secretBytes.json"
+        url = "https://raw.githubusercontent.com/xyloflake/spot-secrets-go/refs/heads/main/secrets/secretBytes.json"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -184,3 +184,4 @@ class Spotify:
     async def select_device(self, device):
         data = {'transfer_options': {'restore_paused': 'restore'}}
         return await self.make_api_call("POST", f"https://gew1-spclient.spotify.com/connect-state/v1/connect/transfer/from//to/{device}", data=json.dumps(data))
+
