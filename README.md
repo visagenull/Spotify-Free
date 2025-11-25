@@ -2,7 +2,7 @@
 
 This Home Assistant integration provides an alternative way to control Spotify without requiring a premium account, offering extensive functionality through an unofficial Spotify API. It was developed with the help of ChatGPT and could be subject to changes or potential breakage as it relies on unofficial methods.
 
-# Version 1.7 will break all compatibility with the built in Spotify integration.
+# Version 1.8 will break all compatibility with the built in Spotify integration.
 To stop this ename the folder `spotify` containing the integration files to `spotify_free`, change the domain in `const.py` and the `manifest.json` to `spotify_free`. This will be compatible with the official spotify integration.
 
 ## Features
