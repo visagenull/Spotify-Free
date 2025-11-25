@@ -2,6 +2,9 @@
 
 This Home Assistant integration provides an alternative way to control Spotify without requiring a premium account, offering extensive functionality through an unofficial Spotify API. It was developed with the help of ChatGPT and could be subject to changes or potential breakage as it relies on unofficial methods.
 
+# Version 1.7 will break all compatibility with the built in Spotify integration.
+To stop this ename the folder `spotify` containing the integration files to `spotify_free`, change the domain in `const.py` and the `manifest.json` to `spotify_free`. This will be compatible with the official spotify integration.
+
 ## Features
 
 - **Playback Controls**: Play, Pause, Seek, and Skip tracks.
@@ -66,9 +69,6 @@ To improve performance, you can disable polling:
 2. **Adjust Settings**:
    - Disable polling by unchecking the option or modifying the settings as outlined [here](https://github.com/home-assistant/home-assistant.io/issues/26198#issuecomment-1425561473).
 
-### Replace Spotify Integration
-
-To replace the name and icon of the Spotify Free integration with the official ones rename the folder `spotify_free` containing the integration files to `spotify`, change the domain in `const.py` and the `manifest.json` to `spotify`. This requires that you do not have the official spotify integration installed.
 
 ## Notes
 
